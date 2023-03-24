@@ -1,0 +1,95 @@
+version: "2.3"
+
+networks:
+  traefik:
+    external: true
+
+x-base_service: &base_service
+    volumes:
+      - &v1 ./Text-Generation-Webui-Podman/data:/data
+      - &v2 ./Text-Generation-Webui-Podman/output:/output
+    stop_signal: SIGINT
+    # runtime: nvidia
+    # devices:
+    #   - /dev/nvidiactl
+    #   - /dev/nvidia-uvm
+    #   - /dev/nvidia0
+    #   - /dev/dri
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=all
+
+services:
+  download:
+    build:
+      context: ./Text-Generation-Webui-Podman/
+      dockerfile: ../Dockerfile
+    image: nounique/${COMPOSE_IMAGE_NAME}-webui:${USER}
+    volumes:
+      - *v1
+    command: bash
+    stdin_open: true # -i(interactive) option in docker
+    tty: true # -t(tty) option in docker
+
+  koalpaca7b:
+    <<: *base_service
+    build:
+      context: ./Text-Generation-Webui-Podman/
+      dockerfile: ../Dockerfile
+    image: nounique/${COMPOSE_IMAGE_NAME}-webui:${USER}
+    environment:
+      # - CLI_ARGS=--auto-devices --gpu-memory 11 --listen --no-stream --extensions llama_prompts api sd_api_pictures --cai-chat --model koalpaca --load-in-8bit
+      - CLI_ARGS=--auto-devices --gpu-memory 8 --listen --no-stream --extensions llama_prompts api sd_api_pictures --cai-chat --model koalpaca
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.services.${COMPOSE_IMAGE_NAME}-koalpaca7b.loadbalancer.serversTransport=docker-transport@file
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-koalpaca7b.rule=PathPrefix(`/${COMPOSE_IMAGE_NAME}-koalpaca7b`)
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-koalpaca7b.service=${COMPOSE_IMAGE_NAME}-koalpaca7b
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-koalpaca7b.middlewares=traefik-forward-auth,${COMPOSE_IMAGE_NAME}-koalpaca7b-redirect,${COMPOSE_IMAGE_NAME}-koalpaca7b-strip
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-koalpaca7b-strip.stripprefix.prefixes=/${COMPOSE_IMAGE_NAME}-koalpaca7b
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-koalpaca7b-redirect.redirectregex.regex=^(?:.*:\/\/)?([^:\/]*?\.[^\/]*)[^\/\?]*\/${COMPOSE_IMAGE_NAME}-koalpaca7b$$
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-koalpaca7b-redirect.redirectregex.replacement=https://$${1}/${COMPOSE_IMAGE_NAME}-koalpaca7b/
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-koalpaca7b-redirect.redirectregex.permanent=true
+
+  llama7b:
+    <<: *base_service
+    image: nounique/${COMPOSE_IMAGE_NAME}-webui:${USER}
+    environment:
+      - CLI_ARGS=--gptq-bits 4 --auto-devices --gpu-memory 11 --listen --no-stream --extensions llama_prompts api sd_api_pictures --cai-chat --model llama-7b-hf
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.services.${COMPOSE_IMAGE_NAME}-llama.loadbalancer.serversTransport=docker-transport@file
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-llama.rule=PathPrefix(`/${COMPOSE_IMAGE_NAME}-llama`)
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-llama.service=${COMPOSE_IMAGE_NAME}-llama
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-llama.middlewares=traefik-forward-auth,${COMPOSE_IMAGE_NAME}-llama-redirect,${COMPOSE_IMAGE_NAME}-llama-strip
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama-strip.stripprefix.prefixes=/${COMPOSE_IMAGE_NAME}-llama
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama-redirect.redirectregex.regex=^(?:.*:\/\/)?([^:\/]*?\.[^\/]*)[^\/\?]*\/${COMPOSE_IMAGE_NAME}-llama$$
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama-redirect.redirectregex.replacement=https://$${1}/${COMPOSE_IMAGE_NAME}-llama/
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama-redirect.redirectregex.permanent=true
+    shm_size: 2G
+
+  llama13b:
+    <<: *base_service
+    image: nounique/${COMPOSE_IMAGE_NAME}-webui:${USER}
+    environment:
+      # - CLI_ARGS=--gptq-bits 4 --auto-devices --gpu-memory 11 --listen --no-stream --extensions llama_prompts api sd_api_pictures --cai-chat --model llama-13b
+      - CLI_ARGS=--auto-devices --gpu-memory 11 --listen --no-stream --extensions llama_prompts api sd_api_pictures --cai-chat --model llama-13b
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.services.${COMPOSE_IMAGE_NAME}-llama13b.loadbalancer.serversTransport=docker-transport@file
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-llama13b.rule=PathPrefix(`/${COMPOSE_IMAGE_NAME}-llama13b`)
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-llama13b.service=${COMPOSE_IMAGE_NAME}-llama13b
+      - traefik.http.routers.${COMPOSE_IMAGE_NAME}-llama13b.middlewares=traefik-forward-auth,${COMPOSE_IMAGE_NAME}-llama13b-redirect,${COMPOSE_IMAGE_NAME}-llama13b-strip
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama13b-strip.stripprefix.prefixes=/${COMPOSE_IMAGE_NAME}-llama13b
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama13b-redirect.redirectregex.regex=^(?:.*:\/\/)?([^:\/]*?\.[^\/]*)[^\/\?]*\/${COMPOSE_IMAGE_NAME}-llama13b$$
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama13b-redirect.redirectregex.replacement=https://$${1}/${COMPOSE_IMAGE_NAME}-llama13b/
+      - traefik.http.middlewares.${COMPOSE_IMAGE_NAME}-llama13b-redirect.redirectregex.permanent=true

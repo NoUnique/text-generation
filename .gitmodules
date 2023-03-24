@@ -1,0 +1,6 @@
+[submodule ".devcontainer"]
+	path = .devcontainer
+	url = git@github.com:NoUnique/.devcontainer.git
+[submodule "Text-Generation-Webui-Podman"]
+	path = Text-Generation-Webui-Podman
+	url = git@github.com:RedTopper/Text-Generation-Webui-Podman.git
